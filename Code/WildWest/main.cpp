@@ -1,5 +1,6 @@
 #include <Windows.h>
 #include <stdint.h>
+#include <Xinput.h>
 
 typedef uint8_t uint8;
 typedef uint32_t uint32;
@@ -15,6 +16,35 @@ struct win32_offscreen_buffer
 	int Pitch;
 	int BytesPerPixel;
 };
+
+#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE* pState)
+typedef X_INPUT_GET_STATE(x_input_get_state);
+X_INPUT_GET_STATE(XInputGetStateStub)
+{
+	return 0;
+}
+static x_input_get_state *XInputGetState_ = XInputGetStateStub;
+#define XInputGetState XInputGetState_
+
+#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION* pVibration)
+typedef X_INPUT_SET_STATE(x_input_set_state);
+X_INPUT_SET_STATE(XInputSetStateStub)
+{
+	return 0;
+}
+static x_input_set_state *XInputSetState_ = XInputSetStateStub;
+#define XInputSetState XInputSetState_
+
+static void
+Win32LoadXInput(void)
+{
+	HMODULE XInputLibrary = LoadLibrary("xinput1_3.dll");
+	if (XInputLibrary)
+	{
+		XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+		XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+	}
+}
 
 static win32_offscreen_buffer GlobalBackBuffer;
 
@@ -138,6 +168,14 @@ LRESULT CALLBACK MainWindowCallback(
 		OutputDebugStringA("WM_ACTIVATEAPP\n");
 	} break;
 
+	case WM_SYSKEYDOWN:
+	case WM_SYSKEYUP:
+	case WM_KEYDOWN:
+	case WM_KEYUP:
+	{
+		uint32_t VKCode = WParam;
+	} break;
+
 	case WM_PAINT:
 	{
 		PAINTSTRUCT Paint;
@@ -168,6 +206,8 @@ HINSTANCE PrevInstance,
 LPSTR CommandLine,
 int ShowCode)
 {
+	Win32LoadXInput();
+
 	WNDCLASS WindowClass = {};
 
 	ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
@@ -209,6 +249,37 @@ int ShowCode)
 
 					TranslateMessage(&Message);
 					DispatchMessageA(&Message);
+				}
+
+				for (DWORD ControllerIndex = 0;
+					ControllerIndex < XUSER_MAX_COUNT;
+					++ControllerIndex)
+				{
+					XINPUT_STATE ControllerState;
+					if (XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
+					{
+						XINPUT_GAMEPAD *Pad = &ControllerState.Gamepad;
+
+						bool Up = Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
+						bool Down = Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
+						bool Left = Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
+						bool Right = Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
+						bool Start = Pad->wButtons & XINPUT_GAMEPAD_START;
+						bool Back = Pad->wButtons & XINPUT_GAMEPAD_BACK;
+						bool LeftShoulder = Pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER;
+						bool RightShoulder = Pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
+						bool AButton = Pad->wButtons & XINPUT_GAMEPAD_A;
+						bool BButton = Pad->wButtons & XINPUT_GAMEPAD_B;
+						bool XButton = Pad->wButtons & XINPUT_GAMEPAD_X;
+						bool YButton = Pad->wButtons & XINPUT_GAMEPAD_Y;
+
+						int16_t StickX = Pad->sThumbLX;
+						int16_t StickY = Pad->sThumbLY;
+					}
+					else
+					{
+						// Controller not available
+					}
 				}
 
 				RenderWeirdGrandent(GlobalBackBuffer, XOffset, YOffset);
