@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.40629.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WildWest", "WildWest\WildWest.vcxproj", "{34A9BB71-C8F7-4D75-B9BA-B18B680CBD52}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Imperial", "Imperial\Imperial.vcxproj", "{34A9BB71-C8F7-4D75-B9BA-B18B680CBD52}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
