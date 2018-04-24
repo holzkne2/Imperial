@@ -1,12 +1,10 @@
-#include "main.h"
+#include "Debug.h"
 
 #include <Windows.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <Xinput.h>
 #include <dsound.h>
 #include <math.h>
-#include <stdarg.h>
 
 typedef uint8_t uint8;
 typedef uint16_t uint16;
@@ -20,34 +18,14 @@ typedef int64_t int64;
 
 #define Pi32 3.14159265359f
 
-#if DEBUG
-#define ILOG(msg, ...) ILog(msg, __FILE__, __LINE__, __VA_ARGS__)
-void ILog(const char* format, const char* filename, const int line, ...)
-{
-	char Buffer[256];
-	va_list args;
-	va_start(args, format);
-
-	char msg[256] = "Log[%s, %i]: ";
-	strcat_s(msg, 256, format);
-
-	vsprintf_s(Buffer, msg, args);
-	va_end(args);
-
-	OutputDebugStringA(Buffer); // TODO: Run if not in debugging mode
-}
-#else // #if DEBUG
-#define ILOG(msg, ...) void(0)
-#endif // #if DEBUG
-
 struct win32_offscreen_buffer
 {
 	BITMAPINFO Info;
 	void *Memory;
-	int Width;
-	int Height;
-	int Pitch;
-	int BytesPerPixel;
+	int32 Width;
+	int32 Height;
+	int32 Pitch;
+	int32 BytesPerPixel;
 };
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE* pState)
@@ -164,8 +142,8 @@ static win32_offscreen_buffer GlobalBackBuffer;
 
 struct win32_window_dimension
 {
-	int Width;
-	int Height;
+	int32 Width;
+	int32 Height;
 };
 
 static win32_window_dimension GetWindowDimension(HWND Window)
@@ -180,13 +158,13 @@ static win32_window_dimension GetWindowDimension(HWND Window)
 	return Result;
 }
 
-static void RenderWeirdGrandent(win32_offscreen_buffer *Buffer, int XOffset, int YOffset)
+static void RenderWeirdGrandent(win32_offscreen_buffer *Buffer, int32 XOffset, int32 YOffset)
 {
 	uint8 *Row = (uint8 *)Buffer->Memory;
-	for (int Y = 0; Y < Buffer->Height; ++Y)
+	for (int32 Y = 0; Y < Buffer->Height; ++Y)
 	{
 		uint32 *Pixel = (uint32 *)Row;
-		for (int X = 0; X < Buffer->Width; ++X)
+		for (int32 X = 0; X < Buffer->Width; ++X)
 		{
 			/*
 			Pixel in memory: BB GG RR xx
@@ -202,7 +180,7 @@ static void RenderWeirdGrandent(win32_offscreen_buffer *Buffer, int XOffset, int
 	}
 }
 
-static void ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
+static void ResizeDIBSection(win32_offscreen_buffer *Buffer, int32 Width, int32 Height)
 {
 	if (Buffer->Memory)
 	{
@@ -221,15 +199,15 @@ static void ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Heig
 
 	Buffer->BytesPerPixel = 4;
 
-	int BitmapMemorySize = (Buffer->Width * Buffer->Height) * Buffer->BytesPerPixel;
+	int32 BitmapMemorySize = (Buffer->Width * Buffer->Height) * Buffer->BytesPerPixel;
 	Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
 
 	Buffer->Pitch = Buffer->Width * Buffer->BytesPerPixel;
 }
 
-static void Win32CopyBufferToWindow(HDC DeviceContext, int WindowWidth, int WindowHeight,
+static void Win32CopyBufferToWindow(HDC DeviceContext, int32 WindowWidth, int32 WindowHeight,
 win32_offscreen_buffer *Buffer,
-int X, int Y, int Width, int Height)
+int32 X, int32 Y, int32 Width, int32 Height)
 {
 	StretchDIBits(
 		DeviceContext,
@@ -344,10 +322,10 @@ LRESULT CALLBACK MainWindowCallback(
 	{
 		PAINTSTRUCT Paint;
 		HDC DeviceContext = BeginPaint(Window, &Paint);
-		int X = Paint.rcPaint.left;
-		int Y = Paint.rcPaint.top;
-		int Width = Paint.rcPaint.right - Paint.rcPaint.left;
-		int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
+		int32 X = Paint.rcPaint.left;
+		int32 Y = Paint.rcPaint.top;
+		int32 Width = Paint.rcPaint.right - Paint.rcPaint.left;
+		int32 Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
 
 		win32_window_dimension Dimension = GetWindowDimension(Window);
 
@@ -370,13 +348,13 @@ LRESULT CALLBACK MainWindowCallback(
 
 struct win32_sound_output
 {
-	int SamplesPerSecond;
-	int ToneHz;
-	int ToneVolume;
+	int32 SamplesPerSecond;
+	int32 ToneHz;
+	int32 ToneVolume;
 	uint32 RunningSampleIndex;
-	int WavePeriod;
-	int BytesPerSample;
-	int SecondaryBufferSize;
+	int32 WavePeriod;
+	int32 BytesPerSample;
+	int32 SecondaryBufferSize;
 };
 
 void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD BytesToWrite)
@@ -422,7 +400,7 @@ void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWO
 	}
 }
 
-int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode)
+int32 CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int32 ShowCode)
 {
 	LARGE_INTEGER PerfCountFrequency;
 	QueryPerformanceFrequency(&PerfCountFrequency);
@@ -458,8 +436,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 		if (Window)
 		{
 			// Graphics Test
-			int XOffset = 0;
-			int YOffset = 0;
+			int32 XOffset = 0;
+			int32 YOffset = 0;
 
 			// Sound Test
 			win32_sound_output SoundOutput = {};
