@@ -1,6 +1,6 @@
 #pragma once
 
-#define FILE_LOCATION __FILE__, __LINE__
+#define CODE_LOCATION __FILE__, __LINE__
 
 //
 // Log Message
@@ -8,7 +8,7 @@
 
 #if DEBUG
 
-#define ILOG(msg, ...) ILog(msg, FILE_LOCATION, __VA_ARGS__)
+#define ILOG(msg, ...) ILog(msg, CODE_LOCATION, __VA_ARGS__)
 void ILog(const char* format, const char* filename, const int line, ...);
 
 #else // #if DEBUG
@@ -21,10 +21,24 @@ void ILog(const char* format, const char* filename, const int line, ...);
 // Log Error
 //
 
-#define IERROR(condition, msg, ...) \
+#define IASSERT(condition, msg, ...) \
 if (!condition) { \
-	IError(msg, FILE_LOCATION, #condition, __VA_ARGS__); \
-	DebugBreak(); \
+		IAssert(msg, CODE_LOCATION, #condition, __VA_ARGS__); \
+		__debugbreak(); \
 } else void(0)
 
-void IError(const char* format, const char* filename, const int line, const char* condition, ...);
+#define IASSERT_RETURN(condition, msg, ...) \
+if (!condition) { \
+	IAssert(msg, CODE_LOCATION, #condition, __VA_ARGS__); \
+	__debugbreak(); \
+	return; \
+} else void(0)
+
+#define IASSERT_RETURN_VALUE(condition, value, msg, ...) \
+if (!condition) { \
+	IAssert(msg, CODE_LOCATION, #condition, __VA_ARGS__); \
+	__debugbreak(); \
+	return value; \
+} else void(0)
+
+void IAssert(const char* format, const char* filename, const int line, const char* condition, ...);
