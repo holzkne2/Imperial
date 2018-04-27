@@ -4,6 +4,8 @@
 
 #include <stdint.h>
 
+#define PI32 3.14159265359f
+
 typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
@@ -29,8 +31,15 @@ struct game_offscreen_buffer
 	int32 Pitch;
 };
 
+struct game_sound_output_buffer
+{
+	int32 SamplesPerSecond;
+	int32 SampleCount;
+	int16 *Samples;
+};
+
 // timing, input, bitmap buffer, sound buffer
-static void GameUpdateAndRender(game_offscreen_buffer *buffer);
+static void GameUpdateAndRender(game_offscreen_buffer *buffer, game_sound_output_buffer *SoundBuffer);
 
 //
 // Services that the platform provides to the game
