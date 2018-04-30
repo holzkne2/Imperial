@@ -1,7 +1,6 @@
 #if _WIN64 || _WIN32
 
 #include "main.h"
-#include "main.cpp"
 
 #include <Windows.h>
 #include <malloc.h>
@@ -22,6 +21,8 @@ struct win32_offscreen_buffer
 typedef X_INPUT_GET_STATE(x_input_get_state);
 X_INPUT_GET_STATE(XInputGetStateStub)
 {
+	UNREFERENCE(dwUserIndex);
+	UNREFERENCE(pState);
 	return ERROR_DEVICE_NOT_CONNECTED;
 }
 static x_input_get_state *XInputGetState_ = XInputGetStateStub;
@@ -31,6 +32,8 @@ static x_input_get_state *XInputGetState_ = XInputGetStateStub;
 typedef X_INPUT_SET_STATE(x_input_set_state);
 X_INPUT_SET_STATE(XInputSetStateStub)
 {
+	UNREFERENCE(dwUserIndex);
+	UNREFERENCE(pVibration);
 	return ERROR_DEVICE_NOT_CONNECTED;
 }
 static x_input_set_state *XInputSetState_ = XInputSetStateStub;
@@ -39,8 +42,10 @@ static x_input_set_state *XInputSetState_ = XInputSetStateStub;
 static void Win32LoadXInput(void)
 {
 	HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
-	if (!XInputLibrary)
+	if (!XInputLibrary) {
 		HMODULE XInputLibrary = LoadLibraryA("xinput1_3.dll");
+		UNREFERENCE(XInputLibrary);
+	}
 
 	IASSERT_RETURN(XInputLibrary, "Failed to create Win32 XInput");
 	XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
@@ -155,8 +160,7 @@ static void ResizeDIBSection(win32_offscreen_buffer *Buffer, int32 Width, int32 
 }
 
 static void Win32CopyBufferToWindow(HDC DeviceContext, int32 WindowWidth, int32 WindowHeight,
-	win32_offscreen_buffer *Buffer,
-	int32 X, int32 Y, int32 Width, int32 Height)
+	win32_offscreen_buffer *Buffer)
 {
 	StretchDIBits(
 		DeviceContext,
@@ -212,6 +216,7 @@ LRESULT CALLBACK MainWindowCallback(
 	{
 		uint32 VKCode = (uint32)WParam;
 		bool WasDown = ((LParam & (1 << 30)) != 0);
+		UNREFERENCE(WasDown);
 		bool IsDown = ((LParam & (1 << 31)) == 0);
 
 		if (VKCode == 'W')
@@ -271,18 +276,12 @@ LRESULT CALLBACK MainWindowCallback(
 	{
 		PAINTSTRUCT Paint;
 		HDC DeviceContext = BeginPaint(Window, &Paint);
-		int32 X = Paint.rcPaint.left;
-		int32 Y = Paint.rcPaint.top;
-		int32 Width = Paint.rcPaint.right - Paint.rcPaint.left;
-		int32 Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
 
 		win32_window_dimension Dimension = GetWindowDimension(Window);
 
 		Win32CopyBufferToWindow(DeviceContext,
 			Dimension.Width, Dimension.Height,
-			&GlobalBackBuffer,
-			X, Y,
-			Width, Height);
+			&GlobalBackBuffer);
 		EndPaint(Window, &Paint);
 	} break;
 
@@ -376,6 +375,10 @@ static void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLo
 
 int32 CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int32 ShowCode)
 {
+	UNREFERENCE(PrevInstance);
+	UNREFERENCE(CommandLine);
+	UNREFERENCE(ShowCode);
+
 	LARGE_INTEGER PerfCountFrequency;
 	QueryPerformanceFrequency(&PerfCountFrequency);
 
@@ -407,10 +410,6 @@ int32 CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Command
 		0
 		);
 	IASSERT_RETURN_VALUE(Window, 1, "Failed to create window");
-
-	// Graphics Test
-	int32 XOffset = 0;
-	int32 YOffset = 0;
 
 	// Sound Test
 	win32_sound_output SoundOutput = {};
@@ -476,6 +475,25 @@ int32 CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Command
 
 				uint8 RightTrigger = Pad->bRightTrigger;
 				uint8 LeftTrigger = Pad->bLeftTrigger;
+
+				UNREFERENCE(Up);
+				UNREFERENCE(Down);
+				UNREFERENCE(Left);
+				UNREFERENCE(Right);
+				UNREFERENCE(Start);
+				UNREFERENCE(Back);
+				UNREFERENCE(LeftShoulder);
+				UNREFERENCE(RightShoulder);
+				UNREFERENCE(AButton);
+				UNREFERENCE(BButton);
+				UNREFERENCE(XButton);
+				UNREFERENCE(YButton);
+				UNREFERENCE(StickLX);
+				UNREFERENCE(StickLY);
+				UNREFERENCE(StickRX);
+				UNREFERENCE(StickRY);
+				UNREFERENCE(RightTrigger);
+				UNREFERENCE(LeftTrigger);
 			}
 			else
 			{
@@ -489,26 +507,24 @@ int32 CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Command
 		DWORD PlayCursor;
 		DWORD WriteCursor;
 		bool SoundIsValid = false;
-		if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(
-			&PlayCursor, &WriteCursor)))
+		IASSERT_RETURN_VALUE(SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(
+			&PlayCursor, &WriteCursor)), 1, "Failed to get position of sound cursors.");
+		ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample)
+			% SoundOutput.SecondaryBufferSize;
+		TargetCursor = ((PlayCursor +
+			(SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) %
+			SoundOutput.SecondaryBufferSize);
+		if (ByteToLock > TargetCursor)
 		{
-			ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample)
-				% SoundOutput.SecondaryBufferSize;
-			TargetCursor = ((PlayCursor +
-				(SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) %
-				SoundOutput.SecondaryBufferSize);
-			if (ByteToLock > TargetCursor)
-			{
-				BytesToWrite = SoundOutput.SecondaryBufferSize - ByteToLock;
-				BytesToWrite += TargetCursor;
-			}
-			else
-			{
-				BytesToWrite = TargetCursor - ByteToLock;
-			}
-
-			SoundIsValid = true;
+			BytesToWrite = SoundOutput.SecondaryBufferSize - ByteToLock;
+			BytesToWrite += TargetCursor;
 		}
+		else
+		{
+			BytesToWrite = TargetCursor - ByteToLock;
+		}
+
+		SoundIsValid = true;
 
 		game_sound_output_buffer SoundBuffer = {};
 		SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
@@ -531,13 +547,8 @@ int32 CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Command
 		win32_window_dimension Dimension = GetWindowDimension(Window);
 		Win32CopyBufferToWindow(DeviceContext,
 			Dimension.Width, Dimension.Height,
-			&GlobalBackBuffer,
-			0, 0,
-			Dimension.Width, Dimension.Height);
+			&GlobalBackBuffer);
 		ReleaseDC(Window, DeviceContext);
-
-		XOffset++;
-		YOffset++;
 
 		// Performace Check
 		int64 EndCycleCount = __rdtsc();

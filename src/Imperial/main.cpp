@@ -43,11 +43,11 @@ static void RenderWeirdGrandent(game_offscreen_buffer *Buffer, int32 XOffset, in
 	}
 }
 
-static void GameUpdateAndRender(game_offscreen_buffer *buffer, game_sound_output_buffer *SoundBuffer)
+void GameUpdateAndRender(game_offscreen_buffer *buffer, game_sound_output_buffer *SoundBuffer)
 {
 	GameOutputSound(SoundBuffer);
 
-	int32 XOffset = 0;
-	int32 YOffset = 0;
+	static int32 XOffset = 0;
+	static int32 YOffset = 0;
 	RenderWeirdGrandent(buffer, XOffset, YOffset);
 }

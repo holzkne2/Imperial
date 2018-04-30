@@ -19,6 +19,8 @@ typedef int64_t int64;
 typedef float real32;
 typedef double real64;
 
+#define UNREFERENCE(x) x
+
 //
 // Services that the game provides to the platform
 //
@@ -39,7 +41,7 @@ struct game_sound_output_buffer
 };
 
 // timing, input, bitmap buffer, sound buffer
-static void GameUpdateAndRender(game_offscreen_buffer *buffer, game_sound_output_buffer *SoundBuffer);
+void GameUpdateAndRender(game_offscreen_buffer *buffer, game_sound_output_buffer *SoundBuffer);
 
 //
 // Services that the platform provides to the game

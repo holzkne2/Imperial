@@ -1,4 +1,5 @@
 #include "Debug.h"
+#include "main.h"
 
 #include <Windows.h>
 #include <stdio.h>
@@ -9,6 +10,9 @@
 #if DEBUG
 void ILog(const char* format, const char* filename, const int line, ...)
 {
+	UNREFERENCE(filename);
+	UNREFERENCE(line);
+
 	char Buffer[LOG_MESSAGE_LENGTH];
 	va_list args;
 	va_start(args, format);
@@ -26,6 +30,10 @@ void ILog(const char* format, const char* filename, const int line, ...)
 
 void IAssert(const char* format, const char* filename, const int line, const char* condition, ...)
 {
+	UNREFERENCE(filename);
+	UNREFERENCE(line);
+	UNREFERENCE(condition);
+
 	char Buffer[LOG_MESSAGE_LENGTH];
 	va_list args;
 	va_start(args, format);
