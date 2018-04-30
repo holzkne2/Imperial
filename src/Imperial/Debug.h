@@ -41,4 +41,12 @@ if (!condition) { \
 	return value; \
 } else void(0)
 
+#define IASSERT_ONCE(condition, msg, ...) \
+{static bool hit = false; \
+if (!condition && !hit) { \
+	IAssert(msg, CODE_LOCATION, #condition, __VA_ARGS__) ; \
+	__debugbreak(); \
+	hit = true; \
+}}
+
 void IAssert(const char* format, const char* filename, const int line, const char* condition, ...);

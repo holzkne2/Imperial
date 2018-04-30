@@ -1,25 +1,11 @@
 #pragma once
 
+#include "Maths.h"
 #include "Debug.h"
 
-#include <stdint.h>
-
-#define PI32 3.14159265359f
-
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
-
-typedef int8_t int8;
-typedef int16_t int16;
-typedef int32_t int32;
-typedef int64_t int64;
-
-typedef float real32;
-typedef double real64;
-
 #define UNREFERENCE(x) x
+
+#define ARRAY_COUNT(_array) (sizeof(_array) / sizeof((_array)[0]))
 
 //
 // Services that the game provides to the platform
@@ -27,21 +13,66 @@ typedef double real64;
 
 struct game_offscreen_buffer
 {
-	void *Memory;
-	int32 Width;
-	int32 Height;
-	int32 Pitch;
+	void *		memory;
+	int32		width;
+	int32		height;
+	int32		pitch;
 };
 
 struct game_sound_output_buffer
 {
-	int32 SamplesPerSecond;
-	int32 SampleCount;
-	int16 *Samples;
+	int32		samples_per_second;
+	int32		sample_count;
+	int16 *		samples;
+};
+
+struct game_button_state
+{
+	int32 half_transition_count;
+	bool ended_down;
+};
+
+struct game_analog_stick
+{
+	real32 start_x;
+	real32 start_y;
+	real32 min_x;
+	real32 min_y;
+	real32 max_x;
+	real32 max_y;
+	real32 end_x;
+	real32 end_y;
+};
+
+struct game_controller_input
+{
+	bool is_analog;
+
+	game_analog_stick left_stick;
+	game_analog_stick right_stick;
+
+	game_button_state up;
+	game_button_state down;
+	game_button_state left;
+	game_button_state right;
+	game_button_state left_shoulder;
+	game_button_state right_shoulder;
+	game_button_state a;
+	game_button_state b;
+	game_button_state x;
+	game_button_state y;
+	game_button_state start;
+	game_button_state back;
+};
+
+struct game_input
+{
+	game_controller_input controllers[4];
 };
 
 // timing, input, bitmap buffer, sound buffer
-void GameUpdateAndRender(game_offscreen_buffer *buffer, game_sound_output_buffer *SoundBuffer);
+void game_update_and_render(game_input *input_p,
+	game_offscreen_buffer *buffer_p, game_sound_output_buffer *sound_buffer_p);
 
 //
 // Services that the platform provides to the game
