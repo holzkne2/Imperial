@@ -22,20 +22,20 @@ void ILog(const char* format, const char* filename, const int line, ...);
 //
 
 #define IASSERT(condition, msg, ...) \
-if (!condition) { \
+if (!(condition)) { \
 		IAssert(msg, CODE_LOCATION, #condition, __VA_ARGS__); \
 		__debugbreak(); \
 } else void(0)
 
 #define IASSERT_RETURN(condition, msg, ...) \
-if (!condition) { \
+if (!(condition)) { \
 	IAssert(msg, CODE_LOCATION, #condition, __VA_ARGS__); \
 	__debugbreak(); \
 	return; \
 } else void(0)
 
 #define IASSERT_RETURN_VALUE(condition, value, msg, ...) \
-if (!condition) { \
+if (!(condition)) { \
 	IAssert(msg, CODE_LOCATION, #condition, __VA_ARGS__); \
 	__debugbreak(); \
 	return value; \
@@ -43,7 +43,7 @@ if (!condition) { \
 
 #define IASSERT_ONCE(condition, msg, ...) \
 {static bool hit = false; \
-if (!condition && !hit) { \
+if (!hit && !(condition)) { \
 	IAssert(msg, CODE_LOCATION, #condition, __VA_ARGS__) ; \
 	__debugbreak(); \
 	hit = true; \

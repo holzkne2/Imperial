@@ -152,6 +152,7 @@ static void ResizeDIBSection(win32_offscreen_buffer *buffer_p, int32 width, int3
 
 	int32 bitmap_memory_size = (buffer_p->width * buffer_p->height) * buffer_p->bytes_per_pixel;
 	buffer_p->memory = VirtualAlloc(0, bitmap_memory_size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+	IASSERT_RETURN(buffer_p != nullptr, "Failed to allocate memory of size %llu", bitmap_memory_size);
 
 	buffer_p->pitch = buffer_p->width * buffer_p->bytes_per_pixel;
 }
@@ -409,7 +410,22 @@ int32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR comman
 	win32_clear_sound_buffer(&sound_output);
 	Global_secondary_buffer->Play(0, 0, DSBPLAY_LOOPING);
 
-	int16 *samples = (int16 *)VirtualAlloc(0,sound_output.secondary_buffer_size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+	int16 *samples = (int16 *)VirtualAlloc(0,sound_output.secondary_buffer_size,
+		MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	IASSERT_RETURN_VALUE(samples != nullptr, 1,
+		"Failed to allocate memory of size %llu", sound_output.secondary_buffer_size);
+
+	game_memory game_memory_o = {};
+	game_memory_o.permanent_storage_size = ((uint64)2) GB;// 64 MB;
+#if DEBUG
+	LPVOID base_address = (LPVOID)(((uint64)2) TB);
+#else // #if DEBUG
+	LPVOID base_address = 0;
+#endif // #if DEBUG
+	game_memory_o.permanent_storage_p = VirtualAlloc(base_address, game_memory_o.permanent_storage_size,
+		MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	IASSERT_RETURN_VALUE(game_memory_o.permanent_storage_p != nullptr, 1,
+		"Failed to allocate memory of size %llu", game_memory_o.permanent_storage_size);
 
 	Running = true;
 
@@ -548,7 +564,7 @@ int32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR comman
 		buffer.width = Global_back_buffer.width;
 		buffer.height = Global_back_buffer.height;
 		buffer.pitch = Global_back_buffer.pitch;
-		game_update_and_render(&input, &buffer, &sound_buffer);
+		game_update_and_render(&game_memory_o, &input, &buffer, &sound_buffer);
 
 		if (sound_is_valid)
 		{

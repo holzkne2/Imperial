@@ -7,6 +7,11 @@
 
 #define ARRAY_COUNT(_array) (sizeof(_array) / sizeof((_array)[0]))
 
+#define KB * 1024
+#define MB KB KB
+#define GB MB KB
+#define TB GB KB
+
 //
 // Services that the game provides to the platform
 //
@@ -70,9 +75,27 @@ struct game_input
 	game_controller_input controllers[4];
 };
 
-// timing, input, bitmap buffer, sound buffer
-void game_update_and_render(game_input *input_p,
-	game_offscreen_buffer *buffer_p, game_sound_output_buffer *sound_buffer_p);
+struct game_memory
+{
+	bool is_initialized;
+	uint64 permanent_storage_size;
+	void * permanent_storage_p;
+};
+
+struct game_clocks
+{
+	real32 delta_time;
+};
+
+void game_update_and_render(game_memory * const memory_p, game_input const * const input_p,
+	game_offscreen_buffer * const buffer_p, game_sound_output_buffer * const sound_buffer_p);
+
+struct game_state
+{
+	int32 tone_hz;
+	int32 x_offset;
+	int32 y_offset;
+};
 
 //
 // Services that the platform provides to the game
