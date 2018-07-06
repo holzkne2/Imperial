@@ -80,6 +80,8 @@ struct game_memory
 	bool is_initialized;
 	uint64 permanent_storage_size;
 	void * permanent_storage_p;
+	uint64 transient_storage_size;
+	void * transient_storage_p;
 };
 
 struct game_clocks
@@ -87,8 +89,21 @@ struct game_clocks
 	real32 delta_time;
 };
 
-void game_update_and_render(game_memory * const memory_p, game_input const * const input_p,
-	game_offscreen_buffer * const buffer_p, game_sound_output_buffer * const sound_buffer_p);
+#if defined(DEBUG)
+struct read_file_DEBUG {
+	void * memory;
+	uint32 size;
+};
+
+read_file_DEBUG platform_read_entire_file_DEBUG(const char * const file_name);
+void platform_free_file_memory_DEBUG(read_file_DEBUG& file_memory_p);
+
+bool platform_write_entire_file_DEBUG(const char * const file_name,
+	const uint32 memory_size, void const * const file_memory_p);
+#endif //#if defined(DEBUG)
+
+void game_update_and_render(game_memory& memory_p, const game_input& input_p,
+	game_offscreen_buffer& buffer_p, game_sound_output_buffer& sound_buffer_p);
 
 struct game_state
 {

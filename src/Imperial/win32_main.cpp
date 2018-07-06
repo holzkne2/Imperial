@@ -56,6 +56,35 @@ LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
 //
+// Structs
+//
+
+struct win32_offscreen_buffer
+{
+	BITMAPINFO		info;
+	void *			memory;
+	int32			width;
+	int32			height;
+	int32			pitch;
+	int32			bytes_per_pixel;
+};
+
+struct win32_window_dimension
+{
+	int32			width;
+	int32			height;
+};
+
+struct win32_sound_output
+{
+	int32			samples_per_second;
+	uint32			running_sample_index;
+	int32			bytes_per_sample;
+	int32			secondary_buffer_size;
+	int32			latency_sample_count;
+};
+
+//
 // Globals
 //
 
@@ -416,16 +445,20 @@ int32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR comman
 		"Failed to allocate memory of size %llu", sound_output.secondary_buffer_size);
 
 	game_memory game_memory_o = {};
-	game_memory_o.permanent_storage_size = ((uint64)2) GB;// 64 MB;
+	game_memory_o.permanent_storage_size = 64 MB;
+	game_memory_o.transient_storage_size = ((uint64)2) GB;
 #if DEBUG
 	LPVOID base_address = (LPVOID)(((uint64)2) TB);
 #else // #if DEBUG
 	LPVOID base_address = 0;
 #endif // #if DEBUG
-	game_memory_o.permanent_storage_p = VirtualAlloc(base_address, game_memory_o.permanent_storage_size,
+	game_memory_o.permanent_storage_p = VirtualAlloc(base_address,
+		game_memory_o.permanent_storage_size + game_memory_o.transient_storage_size,
 		MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	IASSERT_RETURN_VALUE(game_memory_o.permanent_storage_p != nullptr, 1,
 		"Failed to allocate memory of size %llu", game_memory_o.permanent_storage_size);
+	game_memory_o.transient_storage_p = ((uint8 *)game_memory_o.permanent_storage_p +
+		game_memory_o.permanent_storage_size);
 
 	Running = true;
 
@@ -564,7 +597,7 @@ int32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR comman
 		buffer.width = Global_back_buffer.width;
 		buffer.height = Global_back_buffer.height;
 		buffer.pitch = Global_back_buffer.pitch;
-		game_update_and_render(&game_memory_o, &input, &buffer, &sound_buffer);
+		game_update_and_render(game_memory_o, input, buffer, sound_buffer);
 
 		if (sound_is_valid)
 		{
@@ -590,6 +623,12 @@ int32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR comman
 		real32 fps = (real32)perf_count_frequency.QuadPart / (real32)counter_elapsed;
 		real32 mcpf = (real32)cycle_elapsed / (1000.0f * 1000.0f);
 
+#if !defined(DEBUG)
+		UNREFERENCE(ms_per_frame);
+		UNREFERENCE(fps);
+		UNREFERENCE(mcpf);
+#endif
+
 		if (fps < 60.0f) {
 			ILOG("%.02fms, %.02fFPS, %.02fmc/f", ms_per_frame, fps, mcpf);
 		}
@@ -600,5 +639,71 @@ int32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR comman
 
 	return 0;
 }
+
+#if defined(DEBUG)
+read_file_DEBUG platform_read_entire_file_DEBUG(const char * const file_name)
+{
+	read_file_DEBUG file = {};
+
+	HANDLE file_handle = CreateFileA(file_name, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, 0);
+	IASSERT_RETURN_VALUE(file_handle != INVALID_HANDLE_VALUE, file, "Failed to get file '%s'", file_name);
+
+	LARGE_INTEGER file_size;
+	BOOL results = GetFileSizeEx(file_handle, &file_size);
+	if (!results) {
+		CloseHandle(file_handle);
+		IASSERT_RETURN_VALUE(false, file, "Failed to get file size of file '%s'", file_name);
+	}
+
+	IASSERT(file_size.QuadPart <= UINT32_MAX, "File '%s' is too large. Size: %lli Max: %u",
+		file_name, file_size, UINT32_MAX);
+	file.size = (uint32)file_size.QuadPart;
+
+	file.memory = VirtualAlloc(0, file.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	if (file.memory == nullptr) {
+		CloseHandle(file_handle);
+		file.size = 0;
+		IASSERT_RETURN_VALUE(false, file, "Failed to allocate memory of size %ll");
+	}
+
+	DWORD bytes_read;
+	results = ReadFile(file_handle, file.memory, file.size, &bytes_read, nullptr);
+	if (!results || bytes_read != file.size) {
+		CloseHandle(file_handle);
+		platform_free_file_memory_DEBUG(file);
+		IASSERT_RETURN_VALUE(false, file, "Failed to read file '%s'", file_name);
+	}
+
+	CloseHandle(file_handle);
+	return file;
+}
+
+void platform_free_file_memory_DEBUG(read_file_DEBUG & file)
+{
+	IASSERT_RETURN(file.memory != nullptr, "");
+
+	VirtualFree(file.memory, 0, MEM_RELEASE);
+
+	file.memory = nullptr;
+	file.size = 0;
+}
+
+bool platform_write_entire_file_DEBUG(const char * const file_name,
+	const uint32 memory_size, void const * const file_memory_p)
+{
+	HANDLE file_handle = CreateFileA(file_name, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
+	IASSERT_RETURN_VALUE(file_handle != INVALID_HANDLE_VALUE, false, "Failed to get file '%s'", file_name);
+
+	DWORD bytes_written;
+	BOOL results = WriteFile(file_handle, file_memory_p, memory_size, &bytes_written, nullptr);
+	if (!results || bytes_written != memory_size) {
+		CloseHandle(file_handle);
+		IASSERT_RETURN_VALUE(false, false, "Failed to write to file '%s'", file_name);
+	}
+
+	CloseHandle(file_handle);
+	return true;
+}
+#endif //#if defined(DEBUG)
 
 #endif // #if _WIN64 || _WIN32

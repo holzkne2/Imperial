@@ -7,7 +7,7 @@
 
 #define LOG_MESSAGE_LENGTH 1024
 
-#if DEBUG
+#if defined(DEBUG)
 void ILog(const char* format, const char* filename, const int line, ...)
 {
 	UNREFERENCE(filename);
@@ -26,7 +26,7 @@ void ILog(const char* format, const char* filename, const int line, ...)
 	strcat_s(Buffer, LOG_MESSAGE_LENGTH, "\n");
 	OutputDebugStringA(Buffer); // TODO: Run if not in debugging mode
 }
-#endif // #if DEBUG
+#endif // #if defined(DEBUG)
 
 void IAssert(const char* format, const char* filename, const int line, const char* condition, ...)
 {
