@@ -39,22 +39,19 @@ struct game_button_state
 
 struct game_analog_stick
 {
-	real32 start_x;
-	real32 start_y;
-	real32 min_x;
-	real32 min_y;
-	real32 max_x;
-	real32 max_y;
-	real32 end_x;
-	real32 end_y;
+	real32 average_x;
+	real32 average_y;
 };
 
 struct game_controller_input
 {
-	bool is_analog;
+	bool is_connected;
 
 	game_analog_stick left_stick;
 	game_analog_stick right_stick;
+
+	real32 left_trigger;
+	real32 right_trigger;
 
 	game_button_state up;
 	game_button_state down;
@@ -68,11 +65,17 @@ struct game_controller_input
 	game_button_state y;
 	game_button_state start;
 	game_button_state back;
+
+	void clear_current_frame();
 };
 
 struct game_input
 {
-	game_controller_input controllers[4];
+	// 0 is keyboard
+	// 1+ are controllers
+	game_controller_input controllers[5];
+
+	void clear_current_frame();
 };
 
 struct game_memory

@@ -65,25 +65,65 @@ void game_update_and_render(game_memory& memory_p, const game_input& input_p,
 		memory_p.is_initialized = true;
 	}
 
-	const game_controller_input& input_0 = input_p.controllers[0];
-	if (input_0.is_analog) {
-		game_state_p.tone_hz = 256 + (int32)(128.0f * input_0.left_stick.end_y);
-		game_state_p.x_offset += (int32)(4.8f * input_0.left_stick.end_x);
-	}
-	else {
+	game_state_p.tone_hz = 256;
 
+	const game_controller_input& input_0 = input_p.controllers[0]; //keyboard
+	const game_controller_input& input_1 = input_p.controllers[1]; //controller
+	if (input_1.is_connected == true)
+	{
+		game_state_p.tone_hz += (int32)(128.0f * input_1.left_stick.average_y);
+		game_state_p.x_offset += (int32)(4.8f * input_1.left_stick.average_x);
+	}
+	{
+		game_state_p.tone_hz += (int32)(128.0f * (int32)input_0.down.ended_down);
+		game_state_p.tone_hz += (int32)(-128.0f * (int32)input_0.up.ended_down);
+		game_state_p.x_offset += (int32)(4.8f * (int32)input_0.left.ended_down);
+		game_state_p.x_offset += (int32)(-4.8f * (int32)input_0.right.ended_down);
 	}
 
 	// Input.AButtonHalfTransitionCount;
-	if (input_0.a.ended_down)
+	if (input_0.a.ended_down || input_1.a.ended_down)
 	{
 		game_state_p.y_offset += 1;
 	}
-	if (input_0.y.ended_down)
+	if (input_0.y.ended_down || input_1.y.ended_down)
 	{
 		game_state_p.y_offset -= 1;
 	}
 
 	game_output_sound(sound_buffer_p, game_state_p.tone_hz);
 	render_weird_grandent(buffer_p, game_state_p.x_offset, game_state_p.y_offset);
+}
+
+void game_input::clear_current_frame()
+{
+	for (int i = 0; i < ARRAY_COUNT(controllers); ++i) {
+		controllers[i].clear_current_frame();
+	}
+}
+
+void game_controller_input::clear_current_frame()
+{
+	is_connected = false;
+	
+	left_stick.average_x = 0;
+	left_stick.average_y = 0;
+
+	right_stick.average_x = 0;
+	right_stick.average_y = 0;
+	
+	left_trigger = 0.0f;
+	right_trigger = 0.0f;
+	up.half_transition_count = 0;
+	down.half_transition_count = 0;
+	left.half_transition_count = 0;
+	right.half_transition_count = 0;
+	left_shoulder.half_transition_count = 0;
+	right_shoulder.half_transition_count = 0;
+	a.half_transition_count = 0;
+	b.half_transition_count = 0;
+	x.half_transition_count = 0;
+	y.half_transition_count = 0;
+	start.half_transition_count = 0;
+	back.half_transition_count = 0;
 }

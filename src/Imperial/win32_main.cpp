@@ -36,7 +36,11 @@ static x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define PROCESS_XINPUT_BUTTON(controller, game_button, xinput_button) \
 controller.##game_button.half_transition_count = (controller.##game_button.ended_down == xinput_button) ? \
 0 : 1; \
-controller.##game_button.ended_down = xinput_button;
+controller.##game_button.ended_down = xinput_button
+
+#define PROCESS_KEYBOARD_MESSAGE(controller, game_button, is_down) \
+controller.##game_button.half_transition_count++; \
+controller.##game_button.ended_down = is_down
 
 static void win32_load_xinput(void)
 {
@@ -49,6 +53,17 @@ static void win32_load_xinput(void)
 	IASSERT_RETURN(XInputLibrary, "Failed to create Win32 XInput");
 	XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
 	XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+}
+
+static real32 win32_xinput_process_stick(int16 raw_value, int16 dead_zone)
+{
+	if (raw_value < -dead_zone) {
+		return (real32)(raw_value + dead_zone) / (real32)(INT16_MAX - dead_zone);
+	}
+	else if (raw_value > dead_zone) {
+		return (real32)(raw_value - dead_zone) / (real32)(INT16_MAX - dead_zone);
+	}
+	return 0.0f;
 }
 
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, \
@@ -92,6 +107,93 @@ static LPDIRECTSOUNDBUFFER Global_secondary_buffer;
 
 static bool Running;
 static win32_offscreen_buffer Global_back_buffer;
+
+static void win32_process_pending_messages(game_controller_input& keyboard_controller)
+{
+	MSG message;
+	while (PeekMessageA(&message, 0, 0, 0, PM_REMOVE))
+	{
+		switch (message.message) {
+		case WM_QUIT:
+			Running = false;
+			break;
+
+		case WM_SYSKEYDOWN:
+		case WM_SYSKEYUP:
+		case WM_KEYDOWN:
+		case WM_KEYUP:
+		{
+			keyboard_controller.is_connected = true;
+
+			uint32 vk_code = (uint32)message.wParam;
+			bool was_down = ((message.lParam & (1 << 30)) != 0);
+			UNREFERENCE(was_down);
+			bool is_down = ((message.lParam & (1 << 31)) == 0);
+
+			if (vk_code == 'W')
+			{
+				PROCESS_KEYBOARD_MESSAGE(keyboard_controller, up, is_down);
+			}
+			else if (vk_code == 'A')
+			{
+				PROCESS_KEYBOARD_MESSAGE(keyboard_controller, left, is_down);
+			}
+			else if (vk_code == 'S')
+			{
+				PROCESS_KEYBOARD_MESSAGE(keyboard_controller, down, is_down);
+			}
+			else if (vk_code == 'D')
+			{
+				PROCESS_KEYBOARD_MESSAGE(keyboard_controller, right, is_down);
+			}
+			else if (vk_code == 'Q')
+			{
+				PROCESS_KEYBOARD_MESSAGE(keyboard_controller, a, is_down);
+			}
+			else if (vk_code == 'E')
+			{
+				PROCESS_KEYBOARD_MESSAGE(keyboard_controller, y, is_down);
+			}
+			else if (vk_code == VK_UP)
+			{
+				//PROCESS_KEYBOARD_MESSAGE(keyboard_controller, up, is_down);
+			}
+			else if (vk_code == VK_LEFT)
+			{
+				//PROCESS_KEYBOARD_MESSAGE(keyboard_controller, left, is_down);
+			}
+			else if (vk_code == VK_DOWN)
+			{
+				//PROCESS_KEYBOARD_MESSAGE(keyboard_controller, down, is_down);
+			}
+			else if (vk_code == VK_RIGHT)
+			{
+				//PROCESS_KEYBOARD_MESSAGE(keyboard_controller, right, is_down);
+			}
+			else if (vk_code == VK_ESCAPE)
+			{
+				if (is_down)
+					Running = false;
+			}
+			else if (vk_code == VK_SPACE)
+			{
+
+			}
+
+			if (vk_code == VK_F4 && (message.lParam & (1 << 29)))
+			{
+				Running = false;
+			}
+			break;
+		}
+
+		default:
+			TranslateMessage(&message);
+			DispatchMessageA(&message);
+			break;
+		}
+	}
+}
 
 static void win32_init_dsound(HWND window, int32 samplers_per_second, int32 BufferSize)
 {
@@ -204,12 +306,7 @@ static void win32_copy_buffer_to_window(HDC device_context, int32 window_width, 
 		);
 }
 
-LRESULT CALLBACK MainWindowCallback(
-	HWND   window,
-	UINT   message,
-	WPARAM wparam,
-	LPARAM lparam
-	)
+LRESULT CALLBACK MainWindowCallback(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
 {
 	LRESULT result = 0;
 
@@ -223,81 +320,21 @@ LRESULT CALLBACK MainWindowCallback(
 	{
 		// TODO: Handle as error - recreate window?
 		Running = false;
-	} break;
+		break;
+	}
 
 	case WM_CLOSE:
 	{
 		// TODO: Handle with message to user
 		Running = false;
-	} break;
+		break;
+	}
 
 	case WM_ACTIVATEAPP:
 	{
 		ILOG("WM_ACTIVATEAPP");
-	} break;
-
-	case WM_SYSKEYDOWN:
-	case WM_SYSKEYUP:
-	case WM_KEYDOWN:
-	case WM_KEYUP:
-	{
-		uint32 vk_code = (uint32)wparam;
-		bool was_down = ((lparam & (1 << 30)) != 0);
-		UNREFERENCE(was_down);
-		bool IsDown = ((lparam & (1 << 31)) == 0);
-
-		if (vk_code == 'W')
-		{
-
-		}
-		else if (vk_code == 'A')
-		{
-
-		}
-		else if (vk_code == 'S')
-		{
-
-		}
-		else if (vk_code == 'D')
-		{
-
-		}
-		else if (vk_code == 'Q')
-		{
-
-		}
-		else if (vk_code == VK_UP)
-		{
-
-		}
-		else if (vk_code == VK_LEFT)
-		{
-
-		}
-		else if (vk_code == VK_DOWN)
-		{
-
-		}
-		else if (vk_code == VK_RIGHT)
-		{
-
-		}
-		else if (vk_code == VK_ESCAPE)
-		{
-			if (IsDown)
-				Running = false;
-		}
-		else if (vk_code == VK_SPACE)
-		{
-
-		}
-
-		if (vk_code == VK_F4 && (lparam & (1 << 29)))
-		{
-			Running = false;
-		}
-
-	} break;
+		break;
+	}
 
 	case WM_PAINT:
 	{
@@ -310,12 +347,14 @@ LRESULT CALLBACK MainWindowCallback(
 			dimension.width, dimension.height,
 			&Global_back_buffer);
 		EndPaint(window, &paint);
-	} break;
+		break;
+	}
 
 	default:
 	{
 		result = DefWindowProc(window, message, wparam, lparam);
-	} break;
+		break;
+	}
 	}
 
 	return result;
@@ -453,7 +492,7 @@ int32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR comman
 	LPVOID base_address = 0;
 #endif // #if DEBUG
 	game_memory_o.permanent_storage_p = VirtualAlloc(base_address,
-		game_memory_o.permanent_storage_size + game_memory_o.transient_storage_size,
+		(SIZE_T)(game_memory_o.permanent_storage_size + game_memory_o.transient_storage_size),
 		MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	IASSERT_RETURN_VALUE(game_memory_o.permanent_storage_p != nullptr, 1,
 		"Failed to allocate memory of size %llu", game_memory_o.permanent_storage_size);
@@ -465,34 +504,30 @@ int32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR comman
 	LARGE_INTEGER last_counter;
 	QueryPerformanceCounter(&last_counter);
 	int64 last_cycle_count = __rdtsc();
+	
+	game_input input = {};
+	
 	while (Running)
 	{
-		game_input input = {};
+		input.clear_current_frame();
+		win32_process_pending_messages(input.controllers[0]);
 
-		MSG message;
-		while (PeekMessageA(&message, 0, 0, 0, PM_REMOVE))
-		{
-			if (message.message == WM_QUIT)
-				Running = false;
-
-			TranslateMessage(&message);
-			DispatchMessageA(&message);
-		}
-
-		int max_controller_count = XUSER_MAX_COUNT;
-		if (max_controller_count > ARRAY_COUNT(input.controllers)) {
+		static uint32 max_controller_count = XUSER_MAX_COUNT;
+		if (max_controller_count > ARRAY_COUNT(input.controllers) - 1) {
 			IASSERT_ONCE(false, "Too many controllers plugged in.");
-			max_controller_count = ARRAY_COUNT(input.controllers);
+			max_controller_count = ARRAY_COUNT(input.controllers) - 1;
 		}
-		for (DWORD controller_index = 0;
-			controller_index < XUSER_MAX_COUNT;
-			++controller_index)
+
+		for (DWORD controller_index = 0; controller_index < max_controller_count; ++controller_index)
 		{
+			game_controller_input& controller_input = input.controllers[controller_index + 1];
+			controller_input.clear_current_frame();
+
 			XINPUT_STATE controller_state;
 			if (XInputGetState(controller_index, &controller_state) == ERROR_SUCCESS)
 			{
 				XINPUT_GAMEPAD *pad_p = &controller_state.Gamepad;
-				game_controller_input& controller_input = input.controllers[controller_index];
+				controller_input.is_connected = true;
 
 				const bool up				= (pad_p->wButtons & XINPUT_GAMEPAD_DPAD_UP) > 0;
 				const bool down				= (pad_p->wButtons & XINPUT_GAMEPAD_DPAD_DOWN) > 0;
@@ -523,34 +558,28 @@ int32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR comman
 				PROCESS_XINPUT_BUTTON(controller_input, left_shoulder, left_shoulder);
 				PROCESS_XINPUT_BUTTON(controller_input, right_shoulder, right_shoulder);
 
+				// TODO: Circle Deadzone
+
+				// Process Left Stick
 				const int16 xinput_stick_left_x = pad_p->sThumbLX;
 				const int16 xinput_stick_left_y = pad_p->sThumbLY;
-				real32 stick_left_x = remap_n11(SHRT_MIN, SHRT_MAX, xinput_stick_left_x);
-				real32 stick_left_y = remap_n11(SHRT_MIN, SHRT_MAX, xinput_stick_left_y);
-				controller_input.left_stick.start_x = controller_input.left_stick.end_x;
-				controller_input.left_stick.start_y = controller_input.left_stick.end_y;
+				
+				controller_input.left_stick.average_x =
+					win32_xinput_process_stick(xinput_stick_left_x, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+				controller_input.left_stick.average_y =
+					win32_xinput_process_stick(xinput_stick_left_y, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
 
-				// Not Correct
-				controller_input.left_stick.min_x = controller_input.left_stick.max_x
-					= controller_input.left_stick.end_x = stick_left_x;
-				controller_input.left_stick.min_y = controller_input.left_stick.max_y
-					= controller_input.left_stick.end_y = stick_left_y;
 
+				// Process Right Stick
 				const int16 xinput_stick_right_x = pad_p->sThumbRX;
 				const int16 xinput_stick_right_y = pad_p->sThumbRY;
-				real32 stick_right_x = remap_n11(SHRT_MIN, SHRT_MAX, xinput_stick_right_x);
-				real32 stick_right_y = remap_n11(SHRT_MIN, SHRT_MAX, xinput_stick_right_y);
-				controller_input.right_stick.start_x = controller_input.right_stick.end_x;
-				controller_input.right_stick.start_y = controller_input.right_stick.end_y;
 
-				// Not Correct
-				controller_input.right_stick.min_x = controller_input.right_stick.max_x
-					= controller_input.right_stick.end_x = stick_right_x;
-				controller_input.right_stick.min_y = controller_input.right_stick.max_y
-					= controller_input.right_stick.end_y = stick_right_y;
+				controller_input.right_stick.average_x = 
+					win32_xinput_process_stick(xinput_stick_right_x, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
+				controller_input.right_stick.average_y = 
+					win32_xinput_process_stick(xinput_stick_right_y, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
 
-				controller_input.is_analog = true;
-
+				// TODO: Process Triggers
 				const uint8 xinput_right_trigger = pad_p->bRightTrigger;
 				const uint8 xinput_left_trigger = pad_p->bLeftTrigger;
 				UNREFERENCE(xinput_right_trigger);
